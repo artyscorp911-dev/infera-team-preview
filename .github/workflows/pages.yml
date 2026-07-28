@@ -45,11 +45,11 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '947ffe05a28ea590ebee9a8805a51b52c7c6b742' /tmp/build-meta.json
+          grep -F '9f183a0899d4dc131a54cf27532a04d2ef8a0252' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BH2Js8JS.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-Cj07puWR.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DiyNR5be.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-5a4y6KyG.css" --output /tmp/app.css
       - name: Install public browser smoke dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
@@ -74,20 +74,25 @@ jobs:
           const { test, expect } = require('@playwright/test')
           test('public Preview loads, enters demo and registers PWA', async ({ page }) => {
             const failures = []
+            const consoleErrors = []
             page.on('response', response => {
               if (response.status() >= 400) failures.push(response.status() + ' ' + response.url())
             })
-            const response = await page.goto('/', { waitUntil: 'domcontentloaded' })
+            page.on('console', message => {
+              if (message.type() === 'error') consoleErrors.push(message.text())
+            })
+            const response = await page.goto('./', { waitUntil: 'domcontentloaded' })
             expect(response.status()).toBe(200)
             await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
             await page.getByRole('button', { name: 'Открыть демонстрацию' }).click()
             await expect(page.locator('.app-shell')).toBeVisible()
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
             expect(overflow).toBeLessThanOrEqual(1)
-            const manifest = await page.request.get('manifest.webmanifest')
+            const manifest = await page.request.get('./manifest.webmanifest')
             expect(manifest.status()).toBe(200)
             await page.evaluate(async () => { await navigator.serviceWorker.ready })
             expect(failures).toEqual([])
+            expect(consoleErrors).toEqual([])
           })
           EOF
       - name: Run public Chromium, WebKit and iPhone smoke
@@ -105,23 +110,16 @@ jobs:
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
         run: npx --yes lighthouse@12.8.2 "${PREVIEW_URL}" --output=json --output-path=lighthouse-report.json --chrome-flags="--headless --no-sandbox"
-      - name: Publish workflow evidence status
-        if: always()
+      - name: Publish verified status
         env:
           GH_TOKEN: ${{ github.token }}
-          JOB_STATUS: ${{ job.status }}
+          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
-          state=failure
-          description="Public Preview verification failed; inspect workflow"
-          if [ "${JOB_STATUS}" = "success" ]; then
-            state=success
-            description="HTTPS, browsers, source SHA, assets and Lighthouse verified"
-          fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -f state="${state}" \
+            -f state=success \
             -f context=pages-public-verify \
-            -f description="${description}" \
-            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            -f description="HTTPS, source SHA, assets and Lighthouse verified" \
+            -f target_url="${PREVIEW_URL}"
       - name: Upload Lighthouse evidence
         if: always()
         uses: actions/upload-artifact@v4
