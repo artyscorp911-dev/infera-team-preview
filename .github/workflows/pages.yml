@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages preview
+name: Deploy and verify GitHub Pages preview
 
 on:
   push:
@@ -34,3 +34,29 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify public HTTPS resources
+        env:
+          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --location "${PREVIEW_URL}" --output /tmp/index.html; then break; fi
+            sleep 5
+          done
+          grep -F '<div id="root"></div>' /tmp/index.html
+          curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
+          grep -F '947ffe05a28ea590ebee9a8805a51b52c7c6b742' /tmp/build-meta.json
+          curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
+          curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BH2Js8JS.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-Cj07puWR.css" --output /tmp/app.css
+      - name: Lighthouse public Preview
+        env:
+          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+        run: npx --yes lighthouse@12.8.2 "${PREVIEW_URL}" --output=json --output-path=lighthouse-report.json --chrome-flags="--headless --no-sandbox"
+      - name: Upload Lighthouse evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-public-preview
+          path: lighthouse-report.json
+          if-no-files-found: warn
