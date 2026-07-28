@@ -133,6 +133,8 @@ jobs:
                 await expect(button).toHaveAttribute('aria-pressed', 'true')
                 await expect(button).toHaveClass(/active/)
                 await expect(page.locator('.task-list .task-row')).toHaveCount(count)
+                const safeLabel = label.toLowerCase().replace(/\\s+/g, '-')
+                await page.screenshot({ path: `evidence/${browser}-${width}x${height}-filter-${safeLabel}.png`, fullPage: true })
               }
               await page.screenshot({ path: `evidence/${browser}-${width}x${height}-empty.png`, fullPage: true })
               expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
