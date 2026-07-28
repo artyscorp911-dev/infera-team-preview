@@ -1,7 +1,7 @@
 {
   "source_repository": "artyscorp911-dev/infera-team-operations",
   "source_branch": "agent/phase-2a-klassen-ux",
-  "source_commit": "9572da54ba06a3c14a801cc580ab8987c9572c3f",
-  "ci_run": "30355050063",
+  "source_commit": "23694fa617bc0495d2b0f4ce350911a6a681fb25",
+  "ci_run": "30357328685",
   "backend_mode": "demo mode"
 }
