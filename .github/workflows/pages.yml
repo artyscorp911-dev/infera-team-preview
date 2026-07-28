@@ -45,11 +45,11 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '6861c4bcc618eb7d55d7897f3ad43eee5f3e336e' /tmp/build-meta.json
+          grep -F '9572da54ba06a3c14a801cc580ab8987c9572c3f' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DS5zIwDW.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-SVYUV8ff.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C3OW_yRD.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-CC-IhHsc.css" --output /tmp/app.css
       - name: Install public browser smoke dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
@@ -102,6 +102,47 @@ jobs:
               await expect(page.locator('.task-list .task-row')).toHaveCount(count)
               await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
             }
+            await page.locator('button:visible').filter({ hasText: /^Задачи$/ }).first().click()
+            const filters = [
+              ['Все', 5],
+              ['Активные', 5],
+              ['Мои', 0],
+              ['Доступные', 0],
+              ['Без исполнителя', 1],
+              ['Просроченные', 1],
+              ['На проверке', 0],
+            ]
+            const tabs = page.getByLabel('Фильтры задач')
+            const layout = await tabs.evaluate(element => {
+              const buttons = [...element.querySelectorAll('button')]
+              return {
+                pageWidth: document.documentElement.scrollWidth,
+                viewportWidth: window.innerWidth,
+                tabsClientWidth: element.clientWidth,
+                tabsScrollWidth: element.scrollWidth,
+                boxes: buttons.map(button => {
+                  const rect = button.getBoundingClientRect()
+                  return { label: button.textContent.trim(), left: rect.left, right: rect.right, width: rect.width, height: rect.height, clientWidth: button.clientWidth, scrollWidth: button.scrollWidth }
+                }),
+              }
+            })
+            expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth)
+            for (const box of layout.boxes) {
+              expect(box.scrollWidth, box.label + ' is clipped').toBeLessThanOrEqual(box.clientWidth + 1)
+              expect(box.height, box.label + ' target height').toBeGreaterThanOrEqual(44)
+              expect(box.width, box.label + ' target width').toBeGreaterThanOrEqual(44)
+            }
+            for (let index = 0; index < layout.boxes.length - 1; index += 1) {
+              expect(layout.boxes[index].right, layout.boxes[index].label + ' overlaps').toBeLessThanOrEqual(layout.boxes[index + 1].left)
+            }
+            for (const [label, count] of filters) {
+              const button = page.getByRole('button', { name: label, exact: true })
+              await button.scrollIntoViewIfNeeded()
+              await button.click()
+              await expect(button).toHaveAttribute('aria-pressed', 'true')
+              await expect(page.locator('.task-list .task-row')).toHaveCount(count)
+            }
+            await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
             await page.locator('.meeting-mini').click()
             await expect(page.getByRole('heading', { name: 'Собрания', exact: true })).toBeVisible()
             await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
