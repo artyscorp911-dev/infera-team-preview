@@ -45,7 +45,7 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '26517d681bed2a3b1fad9863950a09adbb4929c9' /tmp/build-meta.json
+          grep -F '7586b14e9f3ebba4889e2d12d3eab0008adc4e3c' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
           curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DiyNR5be.js" --output /tmp/app.js
