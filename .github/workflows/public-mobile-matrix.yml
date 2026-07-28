@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 20
     env:
       PREVIEW_URL: https://artyscorp911-dev.github.io/infera-team-preview/
-      APP_SHA: 23694fa617bc0495d2b0f4ce350911a6a681fb25
+      APP_SHA: 15219d64b3c78c7493ce3c445922a7e5eb5cdd28
     steps:
       - name: Wait for exact Preview
         run: |
