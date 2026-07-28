@@ -105,16 +105,23 @@ jobs:
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
         run: npx --yes lighthouse@12.8.2 "${PREVIEW_URL}" --output=json --output-path=lighthouse-report.json --chrome-flags="--headless --no-sandbox"
-      - name: Publish verified status
+      - name: Publish workflow evidence status
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+          JOB_STATUS: ${{ job.status }}
         run: |
+          state=failure
+          description="Public Preview verification failed; inspect workflow"
+          if [ "${JOB_STATUS}" = "success" ]; then
+            state=success
+            description="HTTPS, browsers, source SHA, assets and Lighthouse verified"
+          fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -f state=success \
+            -f state="${state}" \
             -f context=pages-public-verify \
-            -f description="HTTPS, source SHA, assets and Lighthouse verified" \
-            -f target_url="${PREVIEW_URL}"
+            -f description="${description}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
       - name: Upload Lighthouse evidence
         if: always()
         uses: actions/upload-artifact@v4
