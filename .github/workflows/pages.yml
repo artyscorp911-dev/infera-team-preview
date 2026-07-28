@@ -45,11 +45,11 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '7586b14e9f3ebba4889e2d12d3eab0008adc4e3c' /tmp/build-meta.json
+          grep -F '259fec24d4febf973d3a7e1f55a65a0449f3019f' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DiyNR5be.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-5a4y6KyG.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DrEdSWYV.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-SVYUV8ff.css" --output /tmp/app.css
       - name: Install public browser smoke dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
