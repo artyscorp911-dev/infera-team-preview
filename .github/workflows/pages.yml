@@ -50,6 +50,57 @@ jobs:
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
           curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BH2Js8JS.js" --output /tmp/app.js
           curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-Cj07puWR.css" --output /tmp/app.css
+      - name: Install public browser smoke dependencies
+        run: |
+          npm install --no-save @playwright/test@1.54.1
+          npx playwright install --with-deps chromium webkit
+      - name: Create public browser smoke
+        run: |
+          mkdir -p public-smoke
+          cat > public-smoke/playwright.config.cjs <<'EOF'
+          const { defineConfig, devices } = require('@playwright/test')
+          module.exports = defineConfig({
+            testDir: '.',
+            timeout: 60000,
+            use: { baseURL: process.env.PREVIEW_URL, screenshot: 'on' },
+            projects: [
+              { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+              { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+              { name: 'iphone', use: { ...devices['iPhone 13'] } },
+            ],
+          })
+          EOF
+          cat > public-smoke/public.spec.cjs <<'EOF'
+          const { test, expect } = require('@playwright/test')
+          test('public Preview loads, enters demo and registers PWA', async ({ page }) => {
+            const failures = []
+            page.on('response', response => {
+              if (response.status() >= 400) failures.push(response.status() + ' ' + response.url())
+            })
+            const response = await page.goto('/', { waitUntil: 'domcontentloaded' })
+            expect(response.status()).toBe(200)
+            await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
+            await page.getByRole('button', { name: 'Открыть демонстрацию' }).click()
+            await expect(page.locator('.app-shell')).toBeVisible()
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+            expect(overflow).toBeLessThanOrEqual(1)
+            const manifest = await page.request.get('manifest.webmanifest')
+            expect(manifest.status()).toBe(200)
+            await page.evaluate(async () => { await navigator.serviceWorker.ready })
+            expect(failures).toEqual([])
+          })
+          EOF
+      - name: Run public Chromium, WebKit and iPhone smoke
+        env:
+          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+        run: npx playwright test --config=public-smoke/playwright.config.cjs
+      - name: Upload public browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-smoke
+          path: test-results
+          if-no-files-found: warn
       - name: Lighthouse public Preview
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
