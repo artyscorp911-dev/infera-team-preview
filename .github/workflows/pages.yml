@@ -86,6 +86,17 @@ jobs:
             await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
             await page.getByRole('button', { name: 'Открыть демонстрацию' }).click()
             await expect(page.locator('.app-shell')).toBeVisible()
+            const onboarding = page.getByRole('dialog', { name: 'Что нового в KLASSEN' })
+            if (await onboarding.isVisible()) {
+              await onboarding.getByRole('button', { name: 'Продолжить', exact: true }).click()
+            }
+            const createTask = page.getByRole('button', { name: 'Поставить задачу', exact: true }).first()
+            await expect(createTask).toBeVisible()
+            await page.getByRole('button', { name: /ВЛ/ }).click()
+            const roleDialog = page.getByRole('dialog', { name: 'Сменить роль' })
+            await expect(roleDialog.getByRole('button', { name: /ОЛ Ольга Сотрудник/ })).toBeVisible()
+            await roleDialog.getByRole('button', { name: 'Закрыть', exact: true }).click()
+            await expect(createTask).toBeVisible()
             const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
             expect(overflow).toBeLessThanOrEqual(1)
             const manifest = await page.request.get('./manifest.webmanifest')
