@@ -45,11 +45,12 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '9572da54ba06a3c14a801cc580ab8987c9572c3f' /tmp/build-meta.json
+          grep -F '23694fa617bc0495d2b0f4ce350911a6a681fb25' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C3OW_yRD.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-CC-IhHsc.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C1bWTKK4.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BKOELMGI.css" --output /tmp/app.css
+          grep -F 'Открыть демонстрацию' /tmp/app.js
       - name: Install public browser smoke dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
@@ -167,6 +168,50 @@ jobs:
             await page.evaluate(async () => { await navigator.serviceWorker.ready })
             expect(failures).toEqual([])
             expect(consoleErrors).toEqual([])
+          })
+
+          test('cold external user survives restricted Safari storage', async ({ page, context }) => {
+            const failures = []
+            const consoleErrors = []
+            const pageErrors = []
+            page.on('requestfailed', request => failures.push(request.url() + ': ' + request.failure()?.errorText))
+            page.on('console', message => {
+              if (message.type() === 'error') consoleErrors.push(message.text())
+            })
+            page.on('pageerror', error => pageErrors.push(String(error)))
+            await context.addInitScript(() => {
+              for (const key of ['localStorage', 'sessionStorage']) {
+                Object.defineProperty(window, key, {
+                  configurable: true,
+                  get() { throw new DOMException('blocked', 'SecurityError') },
+                })
+              }
+              Object.defineProperty(window, 'indexedDB', {
+                configurable: true,
+                get() { throw new DOMException('blocked', 'SecurityError') },
+              })
+              Object.defineProperty(navigator, 'serviceWorker', {
+                configurable: true,
+                get() { throw new DOMException('blocked', 'SecurityError') },
+              })
+              try {
+                Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined })
+              } catch {}
+            })
+            const response = await page.goto('./', { waitUntil: 'domcontentloaded' })
+            expect(response.status()).toBe(200)
+            const demo = page.getByRole('button', { name: 'Открыть демонстрацию' })
+            await expect(demo).toBeVisible()
+            await demo.click()
+            await expect(page.locator('.app-shell')).toBeVisible()
+            await page.reload({ waitUntil: 'domcontentloaded' })
+            await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
+            const freshPage = await context.newPage()
+            await freshPage.goto('./', { waitUntil: 'domcontentloaded' })
+            await expect(freshPage.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
+            expect(failures).toEqual([])
+            expect(consoleErrors).toEqual([])
+            expect(pageErrors).toEqual([])
           })
           EOF
       - name: Run public Chromium, WebKit and iPhone smoke

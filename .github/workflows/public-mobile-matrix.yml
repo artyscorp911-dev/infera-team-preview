@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 20
     env:
       PREVIEW_URL: https://artyscorp911-dev.github.io/infera-team-preview/
-      APP_SHA: 9572da54ba06a3c14a801cc580ab8987c9572c3f
+      APP_SHA: 23694fa617bc0495d2b0f4ce350911a6a681fb25
     steps:
       - name: Wait for exact Preview
         run: |
@@ -36,8 +36,8 @@ jobs:
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C3OW_yRD.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-CC-IhHsc.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C1bWTKK4.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BKOELMGI.css" --output /tmp/app.css
       - name: Install browser test dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
