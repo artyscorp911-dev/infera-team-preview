@@ -45,10 +45,10 @@ jobs:
           done
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '259fec24d4febf973d3a7e1f55a65a0449f3019f' /tmp/build-meta.json
+          grep -F '6861c4bcc618eb7d55d7897f3ad43eee5f3e336e' /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DrEdSWYV.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-DS5zIwDW.js" --output /tmp/app.js
           curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-SVYUV8ff.css" --output /tmp/app.css
       - name: Install public browser smoke dependencies
         run: |
@@ -90,6 +90,28 @@ jobs:
             if (await onboarding.isVisible()) {
               await onboarding.getByRole('button', { name: 'Продолжить', exact: true }).click()
             }
+            const kpis = [
+              ['Активные задачи: 5. Открыть список', 'Активные', 5],
+              ['Без исполнителя: 1. Открыть список', 'Без исполнителя', 1],
+              ['Просрочено: 1. Открыть список', 'Просроченные', 1],
+              ['Ожидает проверки: 0. Открыть список', 'На проверке', 0],
+            ]
+            for (const [label, tab, count] of kpis) {
+              await page.getByRole('button', { name: label, exact: true }).click()
+              await expect(page.getByRole('button', { name: tab, exact: true })).toHaveClass(/active/)
+              await expect(page.locator('.task-list .task-row')).toHaveCount(count)
+              await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
+            }
+            await page.locator('.meeting-mini').click()
+            await expect(page.getByRole('heading', { name: 'Собрания', exact: true })).toBeVisible()
+            await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
+            const urgent = page.locator('.critical-banner')
+            await urgent.getByRole('button', { name: 'Приду', exact: true }).click()
+            await expect(urgent.getByRole('button', { name: 'Приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
+            await page.reload({ waitUntil: 'domcontentloaded' })
+            await expect(page.locator('.critical-banner').getByRole('button', { name: 'Приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
+            await page.locator('.critical-banner').getByRole('button', { name: 'Не приду', exact: true }).click()
+            await expect(page.locator('.critical-banner').getByRole('button', { name: 'Не приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
             const createTask = page.getByRole('button', { name: 'Поставить задачу', exact: true }).first()
             await expect(createTask).toBeVisible()
             await page.getByRole('button', { name: /ВЛ/ }).click()
