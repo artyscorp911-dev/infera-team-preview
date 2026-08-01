@@ -96,7 +96,7 @@ jobs:
             expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))
             await page.getByRole('button', { name: 'Поставить задачу', exact: true }).first().click()
             await expect(page.getByRole('heading', { name: 'Создать поручение' })).toBeVisible()
-            await expect(page.getByText('Кому поручить?', { exact: true })).toBeVisible()
+            await expect(page.getByRole('group', { name: /Кому поручить/ })).toBeVisible()
             await page.screenshot({ path: `evidence/${testInfo.project.name}-recipient-first-screen.png`, fullPage: true })
             expect(failures).toEqual([])
             expect(consoleErrors).toEqual([])
