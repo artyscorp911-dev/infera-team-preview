@@ -1,7 +1,7 @@
 {
   "source_repository": "artyscorp911-dev/infera-team-operations",
-  "source_branch": "agent/phase-2b-secure-operations",
-  "source_commit": "45577344dd7012e97f19554b82b2f407b95fadc5",
-  "ci_run": "30694022230",
+  "source_branch": "codex/phase-2d-owner-flow-audit",
+  "source_commit": "67a0cdfb92f84f9449f3fabef722843b072d67d7",
+  "ci_run": "30704359631",
   "backend_mode": "local demo; external providers and production backend are not connected"
 }

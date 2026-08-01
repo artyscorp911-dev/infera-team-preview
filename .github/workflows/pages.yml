@@ -37,7 +37,7 @@ jobs:
       - name: Verify exact public artifact
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
-          APP_SHA: 45577344dd7012e97f19554b82b2f407b95fadc5
+          APP_SHA: 67a0cdfb92f84f9449f3fabef722843b072d67d7
         run: |
           for attempt in {1..12}; do
             if curl --fail --silent --show-error --location "${PREVIEW_URL}" --output /tmp/index.html; then break; fi
@@ -83,14 +83,14 @@ jobs:
             }
           }
 
-          test('exact Phase 2B Preview loads and owner controls work', async ({ page, request }, testInfo) => {
+          test('exact Phase 2D Preview loads and owner controls work', async ({ page, request }, testInfo) => {
             const failures = []
             const consoleErrors = []
             page.on('response', response => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`) })
             page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()) })
             const meta = await request.get('./build-meta.json')
             expect(meta.status()).toBe(200)
-            expect((await meta.json()).source_commit).toBe('45577344dd7012e97f19554b82b2f407b95fadc5')
+            expect((await meta.json()).source_commit).toBe('67a0cdfb92f84f9449f3fabef722843b072d67d7')
             await openDemo(page)
             await expect(page.getByRole('heading', { name: /Карта выполнения/ })).toBeVisible()
             expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))
