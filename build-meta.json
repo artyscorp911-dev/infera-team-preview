@@ -1,7 +1,7 @@
 {
   "source_repository": "artyscorp911-dev/infera-team-operations",
-  "source_branch": "codex/phase-2d-owner-flow-audit",
-  "source_commit": "67a0cdfb92f84f9449f3fabef722843b072d67d7",
-  "ci_run": "30704359631",
+  "source_branch": "codex/phase-2e-responsive-pin-security",
+  "source_commit": "34a6963e8b723799c80e616a7ad7714e153f37b9",
+  "ci_run": "30709581632",
   "backend_mode": "local demo; external providers and production backend are not connected"
 }
