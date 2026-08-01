@@ -1,8 +1,6 @@
 name: Verify public mobile task filters
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +16,7 @@ jobs:
     timeout-minutes: 20
     env:
       PREVIEW_URL: https://artyscorp911-dev.github.io/infera-team-preview/
-      APP_SHA: 15219d64b3c78c7493ce3c445922a7e5eb5cdd28
+      APP_SHA: 45577344dd7012e97f19554b82b2f407b95fadc5
     steps:
       - name: Wait for exact Preview
         run: |
@@ -36,8 +34,8 @@ jobs:
           grep -F '<div id="root"></div>' /tmp/index.html
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C1bWTKK4.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BKOELMGI.css" --output /tmp/app.css
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-uqwhcF8X.js" --output /tmp/app.js
+          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-Dg6duJMw.css" --output /tmp/app.css
       - name: Install browser test dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1

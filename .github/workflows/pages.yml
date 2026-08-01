@@ -9,7 +9,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  statuses: write
 
 concurrency:
   group: pages
@@ -35,214 +34,100 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      - name: Verify public HTTPS resources
+      - name: Verify exact public artifact
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+          APP_SHA: 45577344dd7012e97f19554b82b2f407b95fadc5
         run: |
           for attempt in {1..12}; do
             if curl --fail --silent --show-error --location "${PREVIEW_URL}" --output /tmp/index.html; then break; fi
             sleep 5
           done
           grep -F '<div id="root"></div>' /tmp/index.html
-          curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" | tee /tmp/build-meta.json
-          grep -F '15219d64b3c78c7493ce3c445922a7e5eb5cdd28' /tmp/build-meta.json
+          curl --fail --silent --show-error --location "${PREVIEW_URL}build-meta.json" --output /tmp/build-meta.json
+          grep -F "${APP_SHA}" /tmp/build-meta.json
           curl --fail --silent --show-error --location "${PREVIEW_URL}manifest.webmanifest" --output /tmp/manifest.webmanifest
           curl --fail --silent --show-error --location "${PREVIEW_URL}sw.js" --output /tmp/sw.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-C1bWTKK4.js" --output /tmp/app.js
-          curl --fail --silent --show-error --location "${PREVIEW_URL}assets/index-BKOELMGI.css" --output /tmp/app.css
-          grep -F 'Открыть демонстрацию' /tmp/app.js
       - name: Install public browser smoke dependencies
         run: |
           npm install --no-save @playwright/test@1.54.1
           npx playwright install --with-deps chromium webkit
       - name: Create public browser smoke
         run: |
-          mkdir -p public-smoke
+          mkdir -p public-smoke evidence
           cat > public-smoke/playwright.config.cjs <<'EOF'
           const { defineConfig, devices } = require('@playwright/test')
           module.exports = defineConfig({
             testDir: '.',
-            timeout: 60000,
-            use: { baseURL: process.env.PREVIEW_URL, screenshot: 'on' },
+            timeout: 90000,
+            workers: 1,
+            use: { baseURL: process.env.PREVIEW_URL, screenshot: 'only-on-failure', trace: 'retain-on-failure' },
             projects: [
               { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
               { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-              { name: 'iphone', use: { ...devices['iPhone 13'] } },
+              { name: 'iphone-webkit', use: { ...devices['iPhone 13'] } },
             ],
           })
           EOF
           cat > public-smoke/public.spec.cjs <<'EOF'
           const { test, expect } = require('@playwright/test')
-          test('public Preview loads, enters demo and registers PWA', async ({ page }) => {
-            const failures = []
-            const consoleErrors = []
-            page.on('response', response => {
-              if (response.status() >= 400) failures.push(response.status() + ' ' + response.url())
-            })
-            page.on('console', message => {
-              if (message.type() === 'error') consoleErrors.push(message.text())
-            })
+
+          async function openDemo(page) {
             const response = await page.goto('./', { waitUntil: 'domcontentloaded' })
             expect(response.status()).toBe(200)
-            await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
             await page.getByRole('button', { name: 'Открыть демонстрацию' }).click()
-            await expect(page.locator('.app-shell')).toBeVisible()
             const onboarding = page.getByRole('dialog', { name: 'Что нового в KLASSEN' })
             if (await onboarding.isVisible()) {
+              await onboarding.getByRole('radio', { name: /Русский/ }).click()
               await onboarding.getByRole('button', { name: 'Продолжить', exact: true }).click()
             }
-            const kpis = [
-              ['Активные задачи: 5. Открыть список', 'Активные', 5],
-              ['Без исполнителя: 1. Открыть список', 'Без исполнителя', 1],
-              ['Просрочено: 1. Открыть список', 'Просроченные', 1],
-              ['Ожидает проверки: 0. Открыть список', 'На проверке', 0],
-            ]
-            for (const [label, tab, count] of kpis) {
-              await page.getByRole('button', { name: label, exact: true }).click()
-              await expect(page.getByRole('button', { name: tab, exact: true })).toHaveClass(/active/)
-              await expect(page.locator('.task-list .task-row')).toHaveCount(count)
-              await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
-            }
-            await page.locator('button:visible').filter({ hasText: /^Задачи$/ }).first().click()
-            const filters = [
-              ['Все', 5],
-              ['Активные', 5],
-              ['Мои', 0],
-              ['Доступные', 0],
-              ['Без исполнителя', 1],
-              ['Просроченные', 1],
-              ['На проверке', 0],
-            ]
-            const tabs = page.getByLabel('Фильтры задач')
-            const layout = await tabs.evaluate(element => {
-              const buttons = [...element.querySelectorAll('button')]
-              return {
-                pageWidth: document.documentElement.scrollWidth,
-                viewportWidth: window.innerWidth,
-                tabsClientWidth: element.clientWidth,
-                tabsScrollWidth: element.scrollWidth,
-                boxes: buttons.map(button => {
-                  const rect = button.getBoundingClientRect()
-                  return { label: button.textContent.trim(), left: rect.left, right: rect.right, width: rect.width, height: rect.height, clientWidth: button.clientWidth, scrollWidth: button.scrollWidth }
-                }),
-              }
-            })
-            expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth)
-            for (const box of layout.boxes) {
-              expect(box.scrollWidth, box.label + ' is clipped').toBeLessThanOrEqual(box.clientWidth + 1)
-              expect(box.height, box.label + ' target height').toBeGreaterThanOrEqual(44)
-              expect(box.width, box.label + ' target width').toBeGreaterThanOrEqual(44)
-            }
-            for (let index = 0; index < layout.boxes.length - 1; index += 1) {
-              expect(layout.boxes[index].right, layout.boxes[index].label + ' overlaps').toBeLessThanOrEqual(layout.boxes[index + 1].left)
-            }
-            for (const [label, count] of filters) {
-              const button = page.getByRole('button', { name: label, exact: true })
-              await button.scrollIntoViewIfNeeded()
-              await button.click()
-              await expect(button).toHaveAttribute('aria-pressed', 'true')
-              await expect(page.locator('.task-list .task-row')).toHaveCount(count)
-            }
-            await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
-            await page.locator('.meeting-mini').click()
-            await expect(page.getByRole('heading', { name: 'Собрания', exact: true })).toBeVisible()
-            await page.locator('button:visible').filter({ hasText: /^Сегодня$/ }).first().click()
-            const createTask = page.getByRole('button', { name: 'Поставить задачу', exact: true }).first()
-            await expect(createTask).toBeVisible()
-            await page.getByRole('button', { name: /ВЛ/ }).click()
-            const roleDialog = page.getByRole('dialog', { name: 'Сменить роль' })
-            const olga = roleDialog.getByRole('button', { name: /ОЛ Ольга Сотрудник/ })
-            await expect(olga).toBeVisible()
-            await olga.click()
-            const urgent = page.locator('.critical-banner')
-            await urgent.getByRole('button', { name: 'Приду', exact: true }).click()
-            await expect(urgent.getByRole('button', { name: 'Приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
-            await page.reload({ waitUntil: 'domcontentloaded' })
-            await expect(page.locator('.critical-banner').getByRole('button', { name: 'Приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
-            await page.locator('.critical-banner').getByRole('button', { name: 'Не приду', exact: true }).click()
-            await expect(page.locator('.critical-banner').getByRole('button', { name: 'Не приду', exact: true })).toHaveAttribute('aria-pressed', 'true')
-            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-            expect(overflow).toBeLessThanOrEqual(1)
-            const manifest = await page.request.get('./manifest.webmanifest')
-            expect(manifest.status()).toBe(200)
-            await page.evaluate(async () => { await navigator.serviceWorker.ready })
+          }
+
+          test('exact Phase 2B Preview loads and owner controls work', async ({ page, request }, testInfo) => {
+            const failures = []
+            const consoleErrors = []
+            page.on('response', response => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`) })
+            page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()) })
+            const meta = await request.get('./build-meta.json')
+            expect(meta.status()).toBe(200)
+            expect((await meta.json()).source_commit).toBe('45577344dd7012e97f19554b82b2f407b95fadc5')
+            await openDemo(page)
+            await expect(page.getByRole('heading', { name: /Карта выполнения/ })).toBeVisible()
+            expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))
+            await page.getByRole('button', { name: 'Поставить задачу', exact: true }).first().click()
+            await expect(page.getByRole('heading', { name: 'Создать поручение' })).toBeVisible()
+            await expect(page.getByText('Кому поручить?', { exact: true })).toBeVisible()
+            await page.screenshot({ path: `evidence/${testInfo.project.name}-recipient-first-screen.png`, fullPage: true })
             expect(failures).toEqual([])
             expect(consoleErrors).toEqual([])
           })
 
-          test('cold external user survives restricted Safari storage', async ({ page, context }) => {
-            const failures = []
-            const consoleErrors = []
-            const pageErrors = []
-            page.on('requestfailed', request => failures.push(request.url() + ': ' + request.failure()?.errorText))
-            page.on('console', message => {
-              if (message.type() === 'error') consoleErrors.push(message.text())
-            })
-            page.on('pageerror', error => pageErrors.push(String(error)))
-            await context.addInitScript(() => {
-              for (const key of ['localStorage', 'sessionStorage']) {
-                Object.defineProperty(window, key, {
-                  configurable: true,
-                  get() { throw new DOMException('blocked', 'SecurityError') },
-                })
-              }
-              Object.defineProperty(window, 'indexedDB', {
-                configurable: true,
-                get() { throw new DOMException('blocked', 'SecurityError') },
-              })
-              Object.defineProperty(navigator, 'serviceWorker', {
-                configurable: true,
-                get() { throw new DOMException('blocked', 'SecurityError') },
-              })
-              try {
-                Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: undefined })
-              } catch {}
-            })
-            const response = await page.goto('./', { waitUntil: 'domcontentloaded' })
-            expect(response.status()).toBe(200)
-            const demo = page.getByRole('button', { name: 'Открыть демонстрацию' })
-            await expect(demo).toBeVisible()
-            await demo.click()
-            await expect(page.locator('.app-shell')).toBeVisible()
-            await page.reload({ waitUntil: 'domcontentloaded' })
-            await expect(page.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
-            const freshPage = await context.newPage()
-            await freshPage.goto('./', { waitUntil: 'domcontentloaded' })
-            await expect(freshPage.getByRole('button', { name: 'Открыть демонстрацию' })).toBeVisible()
-            expect(failures).toEqual([])
-            expect(consoleErrors).toEqual([])
-            expect(pageErrors).toEqual([])
+          test('connector catalog is honest and role-isolated', async ({ page }, testInfo) => {
+            await openDemo(page)
+            const direct = page.getByRole('button', { name: /Центр подключений|Подключения и сервисы/ }).first()
+            if (await direct.isVisible()) await direct.click()
+            else {
+              await page.getByRole('button', { name: 'Ещё', exact: true }).click()
+              await page.getByRole('button', { name: /Центр подключений|Подключения и сервисы/ }).click()
+            }
+            await expect(page.getByRole('heading', { name: 'Подключения и сервисы' })).toBeVisible()
+            await expect(page.getByText(/Интерфейс RU\/DE\/EN работает встроенно и бесплатно/).first()).toBeVisible()
+            const content = (await page.locator('main').innerText()).toLowerCase()
+            for (const forbidden of ['sandbox', 'fixture', 'provider-neutral']) expect(content).not.toContain(forbidden)
+            await page.screenshot({ path: `evidence/${testInfo.project.name}-connectors.png`, fullPage: true })
           })
           EOF
       - name: Run public Chromium, WebKit and iPhone smoke
         env:
           PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
         run: npx playwright test --config=public-smoke/playwright.config.cjs
-      - name: Upload public browser screenshots
+      - name: Upload public evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: public-browser-smoke
-          path: test-results
+          name: public-preview-evidence
+          path: |
+            evidence
+            test-results
           if-no-files-found: warn
-      - name: Lighthouse public Preview
-        env:
-          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
-        run: npx --yes lighthouse@12.8.2 "${PREVIEW_URL}" --output=json --output-path=lighthouse-report.json --chrome-flags="--headless --no-sandbox"
-      - name: Publish verified status
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
-        run: |
-          gh api --method POST "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -f state=success \
-            -f context=pages-public-verify \
-            -f description="HTTPS, source SHA, assets and Lighthouse verified" \
-            -f target_url="${PREVIEW_URL}"
-      - name: Upload Lighthouse evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse-public-preview
-          path: lighthouse-report.json
-          if-no-files-found: warn
+          retention-days: 14

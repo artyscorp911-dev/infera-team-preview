@@ -3,14 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#111111" />
+    <meta name="theme-color" content="#f3f5f7" />
+    <script>
+      (() => {
+        try {
+          const mode = localStorage.getItem('klassen-theme') || 'system'
+          const dark = matchMedia('(prefers-color-scheme: dark)').matches
+          const resolved = mode === 'system' ? (dark ? 'dark' : 'light') : mode
+          document.documentElement.dataset.themeMode = mode
+          document.documentElement.dataset.theme = resolved
+          document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#111519' : '#f3f5f7'
+        } catch {
+          document.documentElement.dataset.themeMode = 'system'
+          const resolved = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          document.documentElement.dataset.theme = resolved
+          document.querySelector('meta[name="theme-color"]').content = resolved === 'dark' ? '#111519' : '#f3f5f7'
+        }
+      })()
+    </script>
     <meta name="description" content="KLASSEN — задачи, коммуникации и ответственность команды" />
     <link rel="icon" href="/infera-team-preview/favicon.ico" sizes="any" />
     <link rel="icon" href="/infera-team-preview/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/infera-team-preview/apple-touch-icon-180x180.png" />
     <title>KLASSEN TEAM</title>
-    <script type="module" crossorigin src="/infera-team-preview/assets/index-C1bWTKK4.js"></script>
-    <link rel="stylesheet" crossorigin href="/infera-team-preview/assets/index-BKOELMGI.css">
+    <script type="module" crossorigin src="/infera-team-preview/assets/index-uqwhcF8X.js"></script>
+    <link rel="stylesheet" crossorigin href="/infera-team-preview/assets/index-Dg6duJMw.css">
   <link rel="manifest" href="/infera-team-preview/manifest.webmanifest"></head>
   <body>
     <div id="root"></div>
